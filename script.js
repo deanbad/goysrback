@@ -4,31 +4,84 @@ const yesButton = document.getElementById("yesButton");
 const noButton = document.getElementById("noButton");
 const playCountValue = document.getElementById("playCountValue");
 
-const COUNTER_NS = "thegoysarebackin.town";
+const COUNTER_NAMESPACE = "thegoysarebackin.town";
 const COUNTER_ACTION = "view";
 const COUNTER_KEY = "goysrback-plays";
 
 let loopCountArmed = true;
 
-async function fetchCount(increment = false) {
+function setCount(value) {
+  playCountValue.textContent = String(value ?? 0);
+}
+
+function waitForCounterApi(timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+
+    const check = () => {
+      if (window.counterApi) {
+        resolve(window.counterApi);
+        return;
+      }
+
+      if (Date.now() - start >= timeoutMs) {
+        reject(new Error("CounterAPI library did not load in time."));
+        return;
+      }
+
+      window.setTimeout(check, 100);
+    };
+
+    check();
+  });
+}
+
+async function readCount() {
   try {
-    const url = `https://counterapi.com/api/${encodeURIComponent(COUNTER_NS)}/${encodeURIComponent(COUNTER_ACTION)}/${encodeURIComponent(COUNTER_KEY)}?readOnly=${increment ? "false" : "true"}`;
-    const response = await fetch(url);
+    const counterApi = await waitForCounterApi();
 
-    if (!response.ok) {
-      throw new Error(`Counter request failed with status ${response.status}`);
-    }
+    counterApi.read(
+      COUNTER_KEY,
+      COUNTER_ACTION,
+      COUNTER_NAMESPACE,
+      {},
+      function (err, res) {
+        if (err) {
+          console.warn("Counter read failed:", err);
+          playCountValue.textContent = "—";
+          return;
+        }
 
-    const data = await response.json();
-    playCountValue.textContent = String(data.value ?? 0);
+        setCount(res && res.value);
+      }
+    );
   } catch (error) {
-    console.warn("Counter fetch failed:", error);
+    console.warn("CounterAPI unavailable:", error);
     playCountValue.textContent = "—";
   }
 }
 
 async function incrementCount() {
-  await fetchCount(true);
+  try {
+    const counterApi = await waitForCounterApi();
+
+    counterApi.increment(
+      COUNTER_KEY,
+      COUNTER_ACTION,
+      COUNTER_NAMESPACE,
+      {},
+      function (err, res) {
+        if (err) {
+          console.warn("Counter increment failed:", err);
+          return;
+        }
+
+        setCount(res && res.value);
+      }
+    );
+  } catch (error) {
+    console.warn("CounterAPI unavailable:", error);
+  }
 }
 
 async function startVideoWithAudio() {
@@ -76,4 +129,5 @@ video.addEventListener("timeupdate", async () => {
   }
 });
 
-fetchCount();
+readCount();
+window.setInterval(readCount, 7000);
