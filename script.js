@@ -5,14 +5,17 @@ const noButton = document.getElementById("noButton");
 
 yesButton.addEventListener("click", async () => {
   popupOverlay.classList.add("hidden");
-  video.muted = false;
-  video.volume = 1.0;
 
   try {
+    video.pause();
+    video.currentTime = 0;
+    video.muted = false;
+    video.defaultMuted = false;
+    video.volume = 1.0;
     await video.play();
   } catch (error) {
     console.error("Video playback failed:", error);
-    alert("Your browser blocked playback. Try clicking the page again.");
+    alert("Playback or audio was blocked. Try clicking the page again.");
   }
 });
 
